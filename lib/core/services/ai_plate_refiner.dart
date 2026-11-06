@@ -2,30 +2,77 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/excel_vehicle_model.dart';
 import '../config/secrets.dart';
 import 'arabic_voice_normalizer.dart';
 
-/// Fallback plate extractor that asks a small LLM (Hugging Face Inference
-/// Providers, OpenAI-compatible endpoint) to read a noisy transcript.
+/// Fallback plate extractor powered by ultra-fast Groq LPU (llama-3.1-8b-instant ~120ms)
+/// or Hugging Face Inference Providers (Qwen2.5-1.5B ~300ms).
 ///
 /// SPEED RULES (so the app keeps the same feel as the local engine):
 ///  * It is NEVER on the hot path. The local [ArabicVoiceNormalizer] runs first
 ///    on every partial result; this class is only called, in the background,
 ///    when the local parser found no plate in a transcript that clearly
 ///    contains plate-like digits.
-///  * Hard timeout, tiny output (max_tokens), temperature 0.
+///  * Hard timeout, tiny output (max_tokens: 120), temperature 0.
 ///  * In-memory cache + de-duplication of identical in-flight requests.
 class AiPlateRefiner {
   AiPlateRefiner._();
   static final AiPlateRefiner instance = AiPlateRefiner._();
 
-  static const String _endpoint = 'https://router.huggingface.co/v1/chat/completions';
+  static const String prefKeyGroqToken = 'groq_api_key';
 
-  /// Ultra-fast instruct model:
-  /// - HuggingFace: 'Qwen/Qwen2.5-1.5B-Instruct' or 'meta-llama/Llama-3.2-3B-Instruct' (lightning fast ~250-400ms)
-  /// - Groq: 'llama-3.1-8b-instant' (at https://api.groq.com/openai/v1/chat/completions ~120ms)
-  static const String model = 'Qwen/Qwen2.5-1.5B-Instruct';
+  // Primary Ultra-Fast Engine: Groq LPU (800+ tokens/sec, response in ~120ms)
+  static const String _groqEndpoint = 'https://api.groq.com/openai/v1/chat/completions';
+  static const String _groqModel = 'llama-3.1-8b-instant';
+
+  // Fallback Engine: Hugging Face Router
+  static const String _hfEndpoint = 'https://router.huggingface.co/v1/chat/completions';
+  static const String _hfModel = 'Qwen/Qwen2.5-1.5B-Instruct';
+
+  String _runtimeGroqToken = '';
+  bool _initialized = false;
+
+  Future<void> _ensureInit() async {
+    if (_initialized) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _runtimeGroqToken = prefs.getString(prefKeyGroqToken) ?? '';
+    } catch (_) {}
+    _initialized = true;
+  }
+
+  Future<String> getGroqToken() async {
+    await _ensureInit();
+    return _runtimeGroqToken.isNotEmpty ? _runtimeGroqToken : kGroqToken;
+  }
+
+  Future<void> setGroqToken(String token) async {
+    _runtimeGroqToken = token.trim();
+    _initialized = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_runtimeGroqToken.isEmpty) {
+        await prefs.remove(prefKeyGroqToken);
+      } else {
+        await prefs.setString(prefKeyGroqToken, _runtimeGroqToken);
+      }
+    } catch (_) {}
+  }
+
+  String get effectiveGroqToken =>
+      _runtimeGroqToken.isNotEmpty ? _runtimeGroqToken : kGroqToken;
+
+  /// Whether AI fallback is configured with at least one provider.
+  bool get isEnabled => effectiveGroqToken.isNotEmpty || kHuggingFaceToken.isNotEmpty;
+
+  /// True when Groq is used as the primary engine.
+  bool get usesGroq => effectiveGroqToken.isNotEmpty;
+
+  String get endpoint => usesGroq ? _groqEndpoint : _hfEndpoint;
+  String get model => usesGroq ? _groqModel : _hfModel;
+  String get token => usesGroq ? effectiveGroqToken : kHuggingFaceToken;
 
   static const Duration _timeout = Duration(milliseconds: 2000);
   static const int _maxCache = 200;
@@ -44,9 +91,8 @@ class AiPlateRefiner {
   final Map<String, List<ParsedPlateData>> _cache = {};
   final Set<String> _inFlight = {};
 
-  bool get isEnabled => kHuggingFaceToken.isNotEmpty;
-
   Future<List<ParsedPlateData>> refine(String rawTranscript) async {
+    await _ensureInit();
     if (!isEnabled) return const [];
     final key = ArabicVoiceNormalizer.normalizeArabicSpoken(rawTranscript);
     if (key.isEmpty) return const [];
@@ -59,9 +105,9 @@ class AiPlateRefiner {
     try {
       final res = await _client
           .post(
-            Uri.parse(_endpoint),
+            Uri.parse(endpoint),
             headers: {
-              'Authorization': 'Bearer $kHuggingFaceToken',
+              'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
             },
             body: jsonEncode({
@@ -77,7 +123,7 @@ class AiPlateRefiner {
           .timeout(_timeout);
 
       if (res.statusCode != 200) {
-        debugPrint('AI refine HTTP ${res.statusCode}');
+        debugPrint('AI refine HTTP ${res.statusCode} (${usesGroq ? "Groq" : "HF"})');
         return const [];
       }
       final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
@@ -86,7 +132,7 @@ class AiPlateRefiner {
 
       if (_cache.length >= _maxCache) _cache.remove(_cache.keys.first);
       _cache[key] = plates;
-      debugPrint('AI refine ${DateTime.now().difference(started).inMilliseconds}ms '
+      debugPrint('AI refine [${usesGroq ? "Groq" : "HF"}] ${DateTime.now().difference(started).inMilliseconds}ms '
           '-> ${plates.map((p) => p.fullPlate).toList()}');
       return plates;
     } on TimeoutException {
@@ -133,5 +179,62 @@ class AiPlateRefiner {
       ));
     }
     return out;
+  }
+
+  /// Utility to test API connectivity and return latency
+  Future<({bool success, String message, int latencyMs})> testConnection({String? customToken}) async {
+    await _ensureInit();
+    final candidate = (customToken != null && customToken.trim().isNotEmpty)
+        ? customToken.trim()
+        : effectiveGroqToken;
+    final t = candidate.isNotEmpty ? candidate : kHuggingFaceToken;
+    final ep = candidate.isNotEmpty ? _groqEndpoint : _hfEndpoint;
+    final md = candidate.isNotEmpty ? _groqModel : _hfModel;
+
+    if (t.isEmpty) {
+      return (success: false, message: 'لم يتم إدخال مفتاح API', latencyMs: 0);
+    }
+
+    final sw = Stopwatch()..start();
+    try {
+      final res = await _client.post(
+        Uri.parse(ep),
+        headers: {
+          'Authorization': 'Bearer $t',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': md,
+          'temperature': 0,
+          'max_tokens': 60,
+          'messages': [
+            {'role': 'system', 'content': _systemPrompt},
+            {'role': 'user', 'content': 'د ب ن 2816'},
+          ],
+        }),
+      ).timeout(const Duration(milliseconds: 4000));
+
+      sw.stop();
+      if (res.statusCode == 200) {
+        return (
+          success: true,
+          message: 'الاتصال ناجح ومحرك Groq LPU جاهز للعمل!',
+          latencyMs: sw.elapsedMilliseconds,
+        );
+      } else {
+        return (
+          success: false,
+          message: 'خطأ من الخادم (رمز ${res.statusCode}): تأكد من صحة المفتاح',
+          latencyMs: sw.elapsedMilliseconds,
+        );
+      }
+    } catch (e) {
+      sw.stop();
+      return (
+        success: false,
+        message: 'تعذر الاتصال بالخادم: $e',
+        latencyMs: sw.elapsedMilliseconds,
+      );
+    }
   }
 }
