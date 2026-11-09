@@ -290,6 +290,14 @@ class ArabicVoiceNormalizer {
     String? stickyNote,
   }) {
     final normalized = normalizeArabicSpoken(transcriptChunk);
+    return extractPlatesFromNormalized(normalized, stickyNote: stickyNote);
+  }
+
+  /// Multi-plate scanner from already normalized string
+  static List<ParsedPlateData> extractPlatesFromNormalized(
+    String normalized, {
+    String? stickyNote,
+  }) {
     final results = <ParsedPlateData>[];
     if (normalized.isEmpty) return results;
 
@@ -394,9 +402,8 @@ class ArabicVoiceNormalizer {
     return results;
   }
 
-  /// Extracts visualizer slot values for 7 slots
-  static Map<String, String> extractSlots(String transcript) {
-    final plates = extractPlatesFromTranscript(transcript);
+  /// Extracts visualizer slot values for 7 slots from already extracted plates
+  static Map<String, String> extractSlotsFromPlates(List<ParsedPlateData> plates) {
     if (plates.isEmpty) return const {};
     final p = plates.last;
     final lClean = p.letters.replaceAll(RegExp(r'\s+'), '');
@@ -415,9 +422,13 @@ class ArabicVoiceNormalizer {
     };
   }
 
-  /// Orphan note spoken after a pause without a plate
-  static String? orphanNote(String transcript) {
-    final normalized = normalizeArabicSpoken(transcript);
+  /// Extracts visualizer slot values for 7 slots
+  static Map<String, String> extractSlots(String transcript) {
+    return extractSlotsFromPlates(extractPlatesFromTranscript(transcript));
+  }
+
+  /// Orphan note spoken after a pause without a plate (from already normalized string)
+  static String? orphanNoteFromNormalized(String normalized) {
     if (normalized.isEmpty) return null;
     final tokens = normalized.split(' ').where((t) => t.isNotEmpty).toList();
     if (tokens.isEmpty) return null;
@@ -433,5 +444,10 @@ class ArabicVoiceNormalizer {
       return tokens.sublist(idx + 1).join(' ').trim();
     }
     return null;
+  }
+
+  /// Orphan note spoken after a pause without a plate
+  static String? orphanNote(String transcript) {
+    return orphanNoteFromNormalized(normalizeArabicSpoken(transcript));
   }
 }

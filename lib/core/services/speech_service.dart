@@ -18,20 +18,22 @@ class SpeechService {
   Future<bool> initSpeech() => _platformService.initSpeech();
 
   Future<void> startListening({
-    required Function(String rawTranscript, List<ParsedPlateData> plates, Map<String, String> slots) onResult,
+    required Function(String rawTranscript, List<ParsedPlateData> plates, Map<String, String> slots, String normalizedTranscript) onResult,
     required VoidCallback onDone,
     void Function(String? note, int session)? onOrphanNote,
   }) async {
     await _platformService.startListening(
       onResult: (transcript) {
-        // A note without its plate (said after a pause) is delivered FIRST,
-        // before any new plate of the same transcript is recorded.
+        // High-performance single-pass pipeline:
+        // Normalize spoken Arabic once, then feed the normalized tokens
+        // to orphan note detection, plate extraction, and slot calculation.
+        final normalized = ArabicVoiceNormalizer.normalizeArabicSpoken(transcript);
         if (onOrphanNote != null) {
-          onOrphanNote(ArabicVoiceNormalizer.orphanNote(transcript), _platformService.session);
+          onOrphanNote(ArabicVoiceNormalizer.orphanNoteFromNormalized(normalized), _platformService.session);
         }
-        final plates = ArabicVoiceNormalizer.extractPlatesFromTranscript(transcript);
-        final slots = ArabicVoiceNormalizer.extractSlots(transcript);
-        onResult(transcript, plates, slots);
+        final plates = ArabicVoiceNormalizer.extractPlatesFromNormalized(normalized);
+        final slots = ArabicVoiceNormalizer.extractSlotsFromPlates(plates);
+        onResult(transcript, plates, slots, normalized);
       },
       onDone: onDone,
     );

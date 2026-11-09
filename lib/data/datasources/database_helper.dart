@@ -23,6 +23,10 @@ class DatabaseHelper {
       version: 3,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_car_records_user_date ON car_records(user_id, registration_date DESC)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_car_records_plate ON car_records(plate_number)');
+      },
     );
   }
 

@@ -233,12 +233,11 @@ class CarRecordProvider extends ChangeNotifier {
 
     await _speechService.startListening(
       onOrphanNote: _handleOrphanNote,
-      onResult: (rawTranscript, extractedPlates, slots) {
+      onResult: (rawTranscript, extractedPlates, slots, normalized) {
         _currentTranscript = rawTranscript;
         _currentSlots = slots;
 
-        // Process special mode sticky notes
-        final normalized = ArabicVoiceNormalizer.normalizeArabicSpoken(rawTranscript);
+        // Process special mode sticky notes (O(1) checks without re-normalizing)
         if (normalized.contains('بدايه جراج يمين') || normalized.contains('جراج يمين')) {
           _stickyNote = 'جراج يمين';
         } else if (normalized.contains('بدايه برحه يسار') || normalized.contains('برحه يسار')) {
@@ -255,7 +254,7 @@ class CarRecordProvider extends ChangeNotifier {
 
         // AI fallback (background, never blocks the local engine): only when the
         // local parser found nothing but the transcript has plate-like digits.
-        _scheduleAiFallback(rawTranscript, extractedPlates.isEmpty, sortAuditProvider, onPlateAdded);
+        _scheduleAiFallback(rawTranscript, normalized, extractedPlates.isEmpty, sortAuditProvider, onPlateAdded);
 
         notifyListeners();
       },
@@ -358,13 +357,13 @@ class CarRecordProvider extends ChangeNotifier {
 
   void _scheduleAiFallback(
     String rawTranscript,
+    String normalized,
     bool localFoundNothing,
     ExcelSortAuditProvider sortAuditProvider,
     Function(String plate, bool isMatched, String carModel) onPlateAdded,
   ) {
     _aiTimer?.cancel();
     if (!localFoundNothing || !AiPlateRefiner.instance.isEnabled) return;
-    final normalized = ArabicVoiceNormalizer.normalizeArabicSpoken(rawTranscript);
     final digitCount = RegExp(r'\d').allMatches(normalized).length;
     if (digitCount < 3) return;
     // Wait until the speaker pauses, so we send one request per utterance.

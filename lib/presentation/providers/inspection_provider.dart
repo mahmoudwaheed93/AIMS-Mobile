@@ -171,7 +171,7 @@ class InspectionProvider extends ChangeNotifier {
 
     await _speech.startListening(
       onOrphanNote: _handleOrphanNote,
-      onResult: (raw, plates, slots) {
+      onResult: (raw, plates, slots, normalized) {
         _slots = slots;
         for (final p in plates) {
           final key = ArabicVoiceNormalizer.plateKey(p.fullPlate);
