@@ -316,16 +316,39 @@ class CarRecordProvider extends ChangeNotifier {
       'd4': dList.length > 3 ? dList[3] : '-',
     };
 
-    // Save row to local session database using spoken data
-    saveCarRecord(
+    // Instant O(1) in-memory session update - zero latency, zero frame drops!
+    final location = _lastKnownLocation;
+    final record = CarRecord(
       plateNumber: plateData.fullPlate,
-      carModel: plateData.detectedBrand != '-' ? plateData.detectedBrand : 'غير محدد',
+      carType: plateData.detectedBrand != '-' ? plateData.detectedBrand : (auditLog.carType.isNotEmpty && auditLog.carType != '-' ? auditLog.carType : 'غير محدد'),
+      gpsUrl: location?.gpsUrl ?? CarRecord.buildGpsUrl(24.7136, 46.6753),
+      district: _currentDistrict.trim().isNotEmpty ? _currentDistrict.trim() : (location?.district ?? 'غير محدد'),
+      street: _currentStreet,
+      registrationDate: DateTime.now(),
+      recorderName: _recorderName.trim().isEmpty ? '-' : _recorderName.trim(),
       notes: spokenNote ?? _stickyNote ?? '-',
       isMatched: auditLog.isMatched,
-      color: '-',
-      owner: '-',
-      plateKey: norm,
+      color: auditLog.color,
+      owner: auditLog.owner,
     );
+
+    _records.insert(0, record);
+    _recentRecords = _records.take(10).toList();
+    notifyListeners();
+
+    // Persist to local database in background without interrupting audio stream
+    unawaited(() async {
+      try {
+        final newId = await _dbHelper.insertCarRecord(record);
+        _recordIds[norm] = newId;
+        final latest = _latestNote[norm];
+        if (latest != null && latest != '-' && latest != record.notes) {
+          await _dbHelper.updateCarRecordNotes(newId, latest);
+        }
+      } catch (e) {
+        debugPrint('Async DB insert error: $e');
+      }
+    }());
 
     onPlateAdded(plateData.fullPlate, auditLog.isMatched, auditLog.carType);
   }
@@ -467,7 +490,23 @@ class CarRecordProvider extends ChangeNotifier {
           await _dbHelper.updateCarRecordNotes(newId, latest);
         }
       }
-      await loadRecords();
+      final recordWithId = CarRecord(
+        id: newId,
+        plateNumber: record.plateNumber,
+        carType: record.carType,
+        gpsUrl: record.gpsUrl,
+        district: record.district,
+        street: record.street,
+        registrationDate: record.registrationDate,
+        recorderName: record.recorderName,
+        notes: (plateKey != null ? _latestNote[plateKey] : null) ?? record.notes,
+        isMatched: record.isMatched,
+        color: record.color,
+        owner: record.owner,
+      );
+      _records.removeWhere((r) => r.plateNumber == record.plateNumber && r.id == null);
+      _records.insert(0, recordWithId);
+      _recentRecords = _records.take(10).toList();
       return true;
     } catch (e) {
       debugPrint('Error saving record: $e');

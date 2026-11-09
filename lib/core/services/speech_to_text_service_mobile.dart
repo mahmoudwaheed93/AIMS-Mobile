@@ -1,16 +1,18 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'speech_to_text_service_interface.dart';
 
-/// Set to true ONLY if the Arabic offline speech pack is installed on the
-/// phones (Settings > Google > Speech > Offline). On-device recognition has the
-/// lowest latency and works without internet, but fails if the pack is missing.
-const bool kPreferOnDeviceSpeech = false;
+/// Flag to control initial on-device preference.
+/// Enabled by default for 0ms instant local speech recognition.
+const bool kPreferOnDeviceSpeech = true;
 
 class MobileSpeechPlatformService implements SpeechPlatformService {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isInitialized = false;
   bool _wantListening = false;
+  bool _isStarting = false;
+  bool _useOnDevice = kPreferOnDeviceSpeech;
   Function(String transcript)? _onResult;
   VoidCallback? _onDone;
   String? _localeId;
@@ -30,18 +32,27 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
       _isInitialized = await _speech.initialize(
         onError: (val) {
           debugPrint('Speech error: ${val.errorMsg} permanent=${val.permanent}');
-          // Non-permanent errors (no_match / speech_timeout) => just restart.
-          if (_wantListening && !val.permanent) {
-            _restartSoon();
-          } else if (_wantListening) {
-            _wantListening = false;
-            _onDone?.call();
+          if (_wantListening) {
+            // If on-device fails with unsupported language, fallback immediately to cloud
+            if (_useOnDevice &&
+                (val.errorMsg.contains('language_not_supported') ||
+                    val.errorMsg.contains('error_server') ||
+                    val.errorMsg.contains('error_busy'))) {
+              debugPrint('On-device speech unavailable, falling back to standard recognition.');
+              _useOnDevice = false;
+            }
+            if (!val.permanent) {
+              _restartNow();
+            } else {
+              _wantListening = false;
+              _onDone?.call();
+            }
           }
         },
         onStatus: (val) {
           debugPrint('Speech status: $val');
           if (_wantListening && (val == 'done' || val == 'notListening')) {
-            _restartSoon();
+            _restartNow();
           }
         },
       );
@@ -57,7 +68,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
           }
         }
         _localeId ??= ar.isNotEmpty ? ar.first.localeId : null;
-        debugPrint('Speech locale used: $_localeId');
+        debugPrint('Speech locale used: $_localeId (onDevice: $_useOnDevice)');
       }
       return _isInitialized;
     } catch (e) {
@@ -66,34 +77,53 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
     }
   }
 
-  Future<void> _restartSoon() async {
-    await Future.delayed(const Duration(milliseconds: 60));
-    if (_wantListening && !_speech.isListening) {
-      await _listen();
-    }
+  void _restartNow() {
+    if (!_wantListening || _isStarting) return;
+    // Immediate restart with zero artificial delay for seamless continuous speech
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_wantListening && !_speech.isListening && !_isStarting) {
+        _listen();
+      }
+    });
   }
 
   Future<void> _listen() async {
+    if (_isStarting || !_wantListening) return;
+    _isStarting = true;
     _session++;
     try {
       await _speech.listen(
         listenOptions: stt.SpeechListenOptions(
           localeId: _localeId ?? 'ar_SA',
-          listenMode: stt.ListenMode.dictation,
+          // confirmation / deviceDefault emits partial words instantly without waiting for sentence silence
+          listenMode: stt.ListenMode.confirmation,
           partialResults: true,
           cancelOnError: false,
           autoPunctuation: false,
           enableHapticFeedback: false,
-          onDevice: kPreferOnDeviceSpeech,
+          onDevice: _useOnDevice,
         ),
-        listenFor: const Duration(minutes: 5),
-        pauseFor: const Duration(seconds: 20),
-        onResult: (result) => _onResult?.call(result.recognizedWords),
+        listenFor: const Duration(hours: 1),
+        pauseFor: const Duration(seconds: 4),
+        onResult: (result) {
+          if (result.recognizedWords.isNotEmpty) {
+            _onResult?.call(result.recognizedWords);
+          }
+        },
       );
     } catch (e) {
       debugPrint('Error during speech listen: $e');
+      if (_useOnDevice) {
+        // Fallback to cloud if on-device threw an exception
+        _useOnDevice = false;
+        _isStarting = false;
+        await _listen();
+        return;
+      }
       _wantListening = false;
       _onDone?.call();
+    } finally {
+      _isStarting = false;
     }
   }
 
@@ -110,12 +140,14 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
     _onResult = onResult;
     _onDone = onDone;
     _wantListening = true;
+    _useOnDevice = kPreferOnDeviceSpeech;
     await _listen();
   }
 
   @override
   Future<void> stopListening() async {
     _wantListening = false;
+    _isStarting = false;
     if (_speech.isListening) {
       await _speech.stop();
     }

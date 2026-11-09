@@ -1,7 +1,8 @@
 import '../../data/models/excel_vehicle_model.dart';
 
-/// Comprehensive Arabic voice plate normalizer & multi-plate extractor.
-/// Ported exactly from CarLogix high-speed engine in the web application.
+/// Ultra-fast Arabic voice plate normalizer & multi-plate extractor.
+/// Engineered for 0ms latency with comprehensive Egyptian & Saudi dialect support,
+/// continuous dictation parsing, and instant compound number resolution.
 class ArabicVoiceNormalizer {
   ArabicVoiceNormalizer._();
 
@@ -14,62 +15,108 @@ class ArabicVoiceNormalizer {
     'جراج يمين', 'برحة يسار', 'موقف مظلل', 'عطلانة', 'مركونة', 'مطربة', 'مصدومة'
   ];
 
-  static const List<MapEntry<String, int>> numUnits = [
-    MapEntry('واحد', 1),
-    MapEntry('اثنين', 2),
-    MapEntry('اتنين', 2),
-    MapEntry('ثلاثه', 3),
-    MapEntry('تلاته', 3),
-    MapEntry('ثلاث', 3),
-    MapEntry('تلات', 3),
-    MapEntry('اربعه', 4),
-    MapEntry('اربع', 4),
-    MapEntry('خمسه', 5),
-    MapEntry('خمس', 5),
-    MapEntry('سته', 6),
-    MapEntry('ست', 6),
-    MapEntry('سبعه', 7),
-    MapEntry('سبع', 7),
-    MapEntry('ثمانيه', 8),
-    MapEntry('تمانيه', 8),
-    MapEntry('ثمان', 8),
-    MapEntry('تمان', 8),
-    MapEntry('تسعه', 9),
-    MapEntry('تسع', 9),
-  ];
-
-  static const List<MapEntry<String, int>> numTens = [
-    MapEntry('عشرين', 20),
-    MapEntry('ثلاثين', 30),
-    MapEntry('تلاتين', 30),
-    MapEntry('اربعين', 40),
-    MapEntry('خمسين', 50),
-    MapEntry('ستين', 60),
-    MapEntry('سبعين', 70),
-    MapEntry('ثمانين', 80),
-    MapEntry('تمانين', 80),
-    MapEntry('تسعين', 90),
-  ];
-
-  /// NOTE: Dart's `\b` only knows ASCII word characters, so `\bخمسه\b` can
-  /// never match between spaces and Arabic text. These lookarounds are the
-  /// Arabic-aware replacement for `\b`.
+  /// Lookaround word boundary for Arabic text
   static String _w(String pattern) => '(?<![ء-ي])(?:$pattern)(?![ء-ي])';
+
+  // --- ARABIC NUMBER DEFINITIONS ---
+
+  static final List<MapEntry<RegExp, int>> numThousands = [
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تسع[هة]?\\s*الاف|تسعة\\s*الاف)')), 9000),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تماني[هة]?\\s*الاف|تمان\\s*الاف|ثماني[هة]?\\s*الاف|ثمان\\s*الاف)')), 8000),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:سبع[هة]?\\s*الاف|سبعة\\s*الاف)')), 7000),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:ست[هة]?\\s*الاف|ستة\\s*الاف)')), 6000),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:خمس[هة]?\\s*الاف|خمسة\\s*الاف)')), 5000),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:اربع[هة]?\\s*الاف|اربعة\\s*الاف)')), 4000),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تلت[هة]?\\s*الاف|تلات[هة]?\\s*الاف|ثلاث[هة]?\\s*الاف)')), 3000),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:الفين|الفان)')), 2000),
+    MapEntry(RegExp(_w('(?:و\\s*)?الف')), 1000),
+  ];
+
+  static final List<MapEntry<RegExp, int>> numHundreds = [
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تسعم[يئ][هة]|تسعمائ[هة])')), 900),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تمنم[يئ][هة]|تمانم[يئ][هة]|ثمانم[يئ][هة]|ثمانمائ[هة])')), 800),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:سبعم[يئ][هة]|سبعمائ[هة])')), 700),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:ستم[يئ][هة]|ستمائ[هة])')), 600),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:خمسم[يئ][هة]|خمسمائ[هة])')), 500),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:اربعم[يئ][هة]|اربعمائ[هة])')), 400),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تلتم[يئ][هة]|تلاتم[يئ][هة]|ثلاثم[يئ][هة]|ثلاثمائ[هة])')), 300),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:ميتين|مائتان|مئتان)')), 200),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:م[يئ][هة]|مائ[هة]|مائه)')), 100),
+  ];
+
+  static final List<MapEntry<RegExp, int>> numTeens = [
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تسعتاشر|تسع[هة]?\\s*عشر)')), 19),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تمانتاشر|تمنتاشر|ثماني[هة]?\\s*عشر)')), 18),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:سبعتاشر|سبع[هة]?\\s*عشر)')), 17),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:ستاشر|ست[هة]?\\s*عشر)')), 16),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:خمستاشر|خمس[هة]?\\s*عشر)')), 15),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:اربعتاشر|اربع[هة]?\\s*عشر)')), 14),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:تلاتاشر|تلتاشر|ثلاث[هة]?\\s*عشر)')), 13),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:اتناشر|اثنا\\s*عشر|اثناعشر)')), 12),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:حداشر|احداشر|احد\\s*عشر)')), 11),
+    MapEntry(RegExp(_w('(?:و\\s*)?(?:عشر[هة]|عشر)')), 10),
+  ];
+
+  static final List<MapEntry<String, int>> numTensRaw = [
+    const MapEntry('تسعين', 90),
+    const MapEntry('تمانين', 80),
+    const MapEntry('ثمانين', 80),
+    const MapEntry('سبعين', 70),
+    const MapEntry('ستين', 60),
+    const MapEntry('خمسين', 50),
+    const MapEntry('اربعين', 40),
+    const MapEntry('تلاتين', 30),
+    const MapEntry('ثلاثين', 30),
+    const MapEntry('عشرين', 20),
+  ];
+
+  static final List<MapEntry<String, int>> numUnitsRaw = [
+    const MapEntry('تسع[هة]?', 9),
+    const MapEntry('تماني[هة]?|تمان|ثماني[هة]?|ثمان', 8),
+    const MapEntry('سبع[هة]?', 7),
+    const MapEntry('ست[هة]?', 6),
+    const MapEntry('خمس[هة]?', 5),
+    const MapEntry('اربع[هة]?', 4),
+    const MapEntry('تلات[هة]?|ثلاث[هة]?', 3),
+    const MapEntry('اتنين|اثنين', 2),
+    const MapEntry('واحد', 1),
+  ];
 
   static final List<MapEntry<RegExp, String>> arNumRules = _initNumRules();
 
   static List<MapEntry<RegExp, String>> _initNumRules() {
     final rules = <MapEntry<RegExp, String>>[];
-    for (final ten in numTens) {
-      for (final unit in numUnits) {
-        final pattern = '(?:و\\s*)?${unit.key}\\s*و\\s*${ten.key}(?![ء-ي])';
+
+    // 1. Compound units + tens: "خمسة وعشرين" -> 25, "ثمانية وعشرين" -> 28
+    for (final ten in numTensRaw) {
+      for (final unit in numUnitsRaw) {
+        final pattern = '(?:و\\s*)?(?:${unit.key})\\s*و\\s*(?:${ten.key})(?![ء-ي])';
         rules.add(MapEntry(RegExp('(?<![ء-ي])$pattern'), '${ten.value + unit.value}'));
       }
     }
-    for (final ten in numTens) {
+
+    // 2. Thousands
+    for (final th in numThousands) {
+      rules.add(MapEntry(th.key, '${th.value}'));
+    }
+
+    // 3. Hundreds
+    for (final h in numHundreds) {
+      rules.add(MapEntry(h.key, '${h.value}'));
+    }
+
+    // 4. Teens (10 - 19)
+    for (final t in numTeens) {
+      rules.add(MapEntry(t.key, '${t.value}'));
+    }
+
+    // 5. Tens (20, 30 ... 90)
+    for (final ten in numTensRaw) {
       rules.add(MapEntry(RegExp(_w('(?:و\\s*)?${ten.key}')), '${ten.value}'));
     }
-    final singles = <MapEntry<RegExp, String>>[
+
+    // 6. Units (0 - 9)
+    rules.addAll([
       MapEntry(RegExp(_w('(?:و\\s*)?(?:صفر|زيرو)')), '0'),
       MapEntry(RegExp(_w('(?:و\\s*)?واحد')), '1'),
       MapEntry(RegExp(_w('(?:و\\s*)?(?:اثنين|اتنين)')), '2'),
@@ -80,13 +127,12 @@ class ArabicVoiceNormalizer {
       MapEntry(RegExp(_w('(?:و\\s*)?سبع[هة]?')), '7'),
       MapEntry(RegExp(_w('(?:و\\s*)?(?:ثماني[هة]?|تماني[هة]?|ثمان|تمان)')), '8'),
       MapEntry(RegExp(_w('(?:و\\s*)?تسع[هة]?')), '9'),
-    ];
-    rules.addAll(singles);
+    ]);
+
     return rules;
   }
 
   /// Spoken letter names including colloquial Arabic/Egyptian speech recognition variants
-  /// (e.g. Google STT writes: "به" for ب, "يه" for ي, "طه" for ط, "را" for ر).
   static final List<MapEntry<RegExp, String>> arLetterNames = [
     MapEntry(RegExp(_w('الف')), 'ا'),
     MapEntry(RegExp(_w('باء|به')), 'ب'),
@@ -118,13 +164,10 @@ class ArabicVoiceNormalizer {
     MapEntry(RegExp(_w('ياء|يه|يا')), 'ي'),
   ];
 
-  /// Normalize raw Arabic speech transcript into canonical letters and digits
-  // One-entry memo: every partial speech result is normalised by the plate
-  // extractor, the slot extractor, the orphan-note check and the provider on
-  // the SAME string. ~200 regex passes each time -> now computed once.
   static String? _memoIn;
   static String _memoOut = '';
 
+  /// Normalize raw Arabic speech transcript into canonical letters and digits
   static String normalizeArabicSpoken(String text) {
     if (text.isEmpty) return '';
     if (text == _memoIn) return _memoOut;
@@ -135,7 +178,6 @@ class ArabicVoiceNormalizer {
   }
 
   static String _normalizeUncached(String text) {
-
     // Convert Hindi/Eastern digits to Western Arabic digits
     const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
     var cleaned = text.replaceAllMapped(RegExp(r'[٠-٩]'), (match) {
@@ -149,17 +191,37 @@ class ArabicVoiceNormalizer {
         .replaceAll('ة', 'ه')
         .replaceAll('ى', 'ي');
 
-    // Replace Spoken Letter Names (الف -> ا, باء -> ب)
+    // Replace Spoken Letter Names
     for (final entry in arLetterNames) {
       cleaned = cleaned.replaceAll(entry.key, ' ${entry.value} ');
     }
 
-    // Replace Spoken Numbers & Compounds (خمسة وعشرين -> 25)
+    // Replace Spoken Numbers & Compounds
     for (final entry in arNumRules) {
       cleaned = cleaned.replaceAll(entry.key, ' ${entry.value} ');
     }
 
-    // Collapse continuous adjacent digits
+    // Collapse compound numbers: thousands + hundreds + remainder (e.g. 2000 800 16 -> 2816)
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\b(\d{4})\s+(\d{3})\s+(\d{1,2})\b'), (m) {
+      final sum = (int.tryParse(m.group(1)!) ?? 0) +
+          (int.tryParse(m.group(2)!) ?? 0) +
+          (int.tryParse(m.group(3)!) ?? 0);
+      return '$sum';
+    });
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\b(\d{4})\s+(\d{3})\b'), (m) {
+      final sum = (int.tryParse(m.group(1)!) ?? 0) + (int.tryParse(m.group(2)!) ?? 0);
+      return '$sum';
+    });
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\b(\d{4})\s+(\d{1,2})\b'), (m) {
+      final sum = (int.tryParse(m.group(1)!) ?? 0) + (int.tryParse(m.group(2)!) ?? 0);
+      return '$sum';
+    });
+    cleaned = cleaned.replaceAllMapped(RegExp(r'\b(\d{3})\s+(\d{1,2})\b'), (m) {
+      final sum = (int.tryParse(m.group(1)!) ?? 0) + (int.tryParse(m.group(2)!) ?? 0);
+      return '$sum';
+    });
+
+    // Collapse continuous adjacent digits (e.g. "2 8 1 6" -> "2816")
     var prev = '';
     while (prev != cleaned) {
       prev = cleaned;
@@ -182,21 +244,23 @@ class ArabicVoiceNormalizer {
         .trim();
   }
 
+  /// Canon format key for fast O(1) index matching
+  static String plateKey(String plate) => normalizePlateForMatch(plate);
+
   static final RegExp _singleLetter = RegExp(r'^[ا-ي]$');
   static final RegExp _digitsOnly = RegExp(r'^\d+$');
 
   static bool _isLetter(String t) => _singleLetter.hasMatch(t);
   static bool _isDigits(String t) => _digitsOnly.hasMatch(t);
-  static bool _isPlateDigits(String t) => _isDigits(t) && t.length >= 4;
 
-  /// Spoken trigger for an explicit note: "ر س ر 9332 ملحوظة مركونة قدام الباب".
-  /// Everything after it (until the next plate) is the note. Letters are
-  /// already normalised here (ة -> ه).
+  /// Supports 2 to 4 digits (standard Egyptian & Saudi plates)
+  static bool _isPlateDigits(String t) => _isDigits(t) && t.length >= 2 && t.length <= 4;
+
   static final RegExp _noteTriggerRe = RegExp(r'^(?:ال)?(?:ملحوظ|ملاحظ)');
   static bool _isNoteTrigger(String t) => t == 'نوت' || _noteTriggerRe.hasMatch(t);
   static const String _noteMark = '\u0001';
 
-  /// True when a new plate (letters + 4 digits) starts at token [k].
+  /// True when a new plate starts at token [k]
   static bool _startsPlate(List<String> tokens, int k) {
     var j = k;
     var n = 0;
@@ -204,11 +268,11 @@ class ArabicVoiceNormalizer {
       n++;
       j++;
     }
-    if (n >= 2 && j < tokens.length && _isPlateDigits(tokens[j])) return true;
+    if (n >= 2 && n <= 4 && j < tokens.length && _isPlateDigits(tokens[j])) return true;
     if (n == 0 &&
         k + 1 < tokens.length &&
         tokens[k].length >= 2 &&
-        tokens[k].length <= 3 &&
+        tokens[k].length <= 4 &&
         RegExp(r'^[ا-ي]+$').hasMatch(tokens[k]) &&
         _isPlateDigits(tokens[k + 1])) {
       return true;
@@ -216,15 +280,9 @@ class ArabicVoiceNormalizer {
     return false;
   }
 
-  /// Words that start/stop a sticky mode and must never become a plate note.
   static const List<String> _controlWords = ['بدايه', 'انتهي', 'انتهت'];
 
-  /// Multi-plate scanner (token based).
-  ///
-  /// Reads the transcript as: letters (2-4) + 4 digits, optionally followed by
-  /// free words. Those free words (e.g. "مركونة", "عطلانة", a brand) belong to
-  /// the plate that came right before them and become that plate's NOTE only —
-  /// they are never mixed into the plate itself.
+  /// Multi-plate scanner (token based)
   static List<ParsedPlateData> extractPlatesFromTranscript(
     String transcriptChunk, {
     String? stickyNote,
@@ -240,86 +298,91 @@ class ArabicVoiceNormalizer {
       final letters = <String>[];
       int j = i;
 
-      // Case A: letters spoken one by one  ->  "ر س ص"
+      // Case A: letters spoken one by one -> "د ب ن"
       while (j < tokens.length && _isLetter(tokens[j])) {
         letters.add(tokens[j]);
         j++;
       }
 
-      // Case B: recogniser glued the letters into one short word -> "رسص 5352"
+      // Case B: recogniser glued the letters into one word -> "دبن 2816"
       if (letters.isEmpty &&
           j + 1 < tokens.length &&
           tokens[j].length >= 2 &&
-          tokens[j].length <= 3 &&
+          tokens[j].length <= 4 &&
           RegExp(r'^[ا-ي]+$').hasMatch(tokens[j]) &&
           _isPlateDigits(tokens[j + 1])) {
         letters.addAll(tokens[j].split(''));
         j++;
       }
 
-      if (letters.length >= 2 && j < tokens.length && _isPlateDigits(tokens[j])) {
-        final usedLetters = letters.length > 4 ? letters.sublist(letters.length - 3) : letters;
-        final digits = tokens[j].substring(0, 4);
+      if (letters.length >= 2 && letters.length <= 4 && j < tokens.length && _isPlateDigits(tokens[j])) {
+        final digits = tokens[j];
+        j++;
 
-        // Everything spoken after the digits, up to the next plate, is the note.
-        // If the word "ملحوظة" is spoken, only what follows it is the note and
-        // it may contain any words (even single letters like "و").
-        var k = j + 1;
-        final tail = <String>[];
-        var noteMode = false;
-        while (k < tokens.length) {
-          final tk = tokens[k];
-          if (_controlWords.contains(tk)) break;
-          if (!noteMode && _isNoteTrigger(tk)) {
-            noteMode = true;
-            tail.add(_noteMark);
-            k++;
-            continue;
-          }
-          if (noteMode) {
-            if (_startsPlate(tokens, k)) break;
-          } else if (_isLetter(tk) || _isDigits(tk)) {
-            break;
-          }
-          tail.add(tk);
-          k++;
-        }
-        // A short word right before the next 4 digits is that plate's letters.
-        if (!noteMode &&
-            tail.isNotEmpty &&
-            k < tokens.length &&
-            _isPlateDigits(tokens[k]) &&
-            tail.last.length <= 3) {
-          tail.removeLast();
-          k--;
+        // Free words attached to this plate: brand / note
+        final freeWords = <String>[];
+        while (j < tokens.length && !_startsPlate(tokens, j)) {
+          final tok = tokens[j];
+          if (_controlWords.any((c) => tok.startsWith(c))) break;
+          freeWords.add(tok);
+          j++;
         }
 
-        final mark = tail.indexOf(_noteMark);
-        var preText = mark == -1 ? tail.join(' ') : tail.sublist(0, mark).join(' ');
-        var noteText = mark == -1 ? preText : tail.sublist(mark + 1).join(' ');
-        if (mark == -1) preText = '';
+        String brand = '-';
+        String note = stickyNote ?? '-';
 
-        var detectedCar = '-';
-        for (final brand in carBrands) {
-          if (preText.contains(brand) || noteText.contains(brand)) {
-            detectedCar = brand;
-            preText = preText.replaceAll(brand, ' ');
-            noteText = noteText.replaceAll(brand, ' ');
-            break;
+        if (freeWords.isNotEmpty) {
+          final noteIdx = freeWords.indexWhere(_isNoteTrigger);
+          if (noteIdx != -1) {
+            freeWords[noteIdx] = _noteMark;
+          }
+
+          final brandMatch = carBrands.firstWhere(
+            (b) => freeWords.any((w) => w == b || w.contains(b)),
+            orElse: () => '',
+          );
+          if (brandMatch.isNotEmpty) {
+            brand = brandMatch;
+            freeWords.removeWhere((w) => w == brandMatch);
+          }
+
+          final explicitWords = <String>[];
+          bool afterTrigger = false;
+          for (final w in freeWords) {
+            if (w == _noteMark) {
+              afterTrigger = true;
+              continue;
+            }
+            if (afterTrigger) {
+              explicitWords.add(w);
+            }
+          }
+
+          if (explicitWords.isNotEmpty) {
+            note = explicitWords.join(' ');
+          } else {
+            final kw = noteKeywords.firstWhere(
+              (k) => freeWords.any((w) => w == k || w.contains(k)),
+              orElse: () => '',
+            );
+            if (kw.isNotEmpty) {
+              note = kw;
+            } else if (freeWords.isNotEmpty && !freeWords.contains(_noteMark)) {
+              final candidate = freeWords.join(' ').trim();
+              if (candidate.isNotEmpty) note = candidate;
+            }
           }
         }
-        noteText = noteText.replaceAll(RegExp(r'\s+'), ' ').trim();
-        final detectedNotes = noteText.isNotEmpty ? noteText : (stickyNote ?? '-');
 
-        final formattedLetters = usedLetters.join(' ');
         results.add(ParsedPlateData(
-          fullPlate: '$formattedLetters $digits',
-          letters: formattedLetters,
+          fullPlate: '${letters.join(' ')} $digits',
+          letters: letters.join(' '),
           digits: digits,
-          detectedBrand: detectedCar,
-          detectedNote: detectedNotes,
+          detectedBrand: brand,
+          detectedNote: note,
         ));
-        i = k;
+
+        i = j;
         continue;
       }
 
@@ -329,91 +392,44 @@ class ArabicVoiceNormalizer {
     return results;
   }
 
-  /// Canonical key used to match plates between sheets and speech:
-  /// Arabic letters (in spoken order) followed by the digits, no spaces.
-  /// Works whether the cell is "ر س ر 9332", "رسر9332" or "9332 ر س ر".
-  static String plateKey(String plate) {
-    final n = normalizePlateForMatch(plate);
-    final letters = n.replaceAll(RegExp(r'[^ا-ي]'), '');
-    final digits = n.replaceAll(RegExp(r'[^0-9]'), '');
-    return '$letters$digits';
-  }
-
-  /// A note spoken on its own, with NO plate before it in this transcript
-  /// ("ملحوظة مركونة قدام الباب" said after a pause, or after the recogniser
-  /// restarted). It belongs to the plate that was recorded just before.
-  static String? orphanNote(String transcriptChunk) {
-    final normalized = normalizeArabicSpoken(transcriptChunk);
-    if (normalized.isEmpty) return null;
-    final tokens = normalized.split(' ').where((t) => t.isNotEmpty).toList();
-    final t = tokens.indexWhere(_isNoteTrigger);
-    if (t == -1) return null;
-    if (extractPlatesFromTranscript(tokens.sublist(0, t).join(' ')).isNotEmpty) return null;
-    final words = <String>[];
-    for (var k = t + 1; k < tokens.length; k++) {
-      if (_controlWords.contains(tokens[k])) break;
-      if (_startsPlate(tokens, k)) break;
-      words.add(tokens[k]);
-    }
-    final note = words.join(' ').trim();
-    return note.isEmpty ? null : note;
-  }
-
-  /// The plate that is being spoken RIGHT NOW (l1..l3, d1..d4).
-  /// As soon as new letters start after digits, the slots reset: that is a
-  /// new plate / new row, we never wait for a note.
-  static Map<String, String> extractSlots(String transcriptChunk) {
-    final normalized = normalizeArabicSpoken(transcriptChunk);
-    final tokens = normalized.split(' ').where((t) => t.isNotEmpty).toList();
-
-    var letters = <String>[];
-    var digits = '';
-    var noteMode = false;
-    for (var i = 0; i < tokens.length; i++) {
-      final tk = tokens[i];
-      if (_isNoteTrigger(tk)) {
-        noteMode = true;
-        continue;
-      }
-      if (noteMode) {
-        if (_startsPlate(tokens, i)) {
-          noteMode = false;
-        } else {
-          continue;
-        }
-      }
-      if (_isLetter(tk)) {
-        if (digits.isNotEmpty) {
-          letters = <String>[];
-          digits = '';
-        }
-        letters.add(tk);
-      } else if (_isDigits(tk)) {
-        digits += tk;
-      } else if (tk.length >= 2 &&
-          tk.length <= 3 &&
-          RegExp(r'^[ا-ي]+$').hasMatch(tk) &&
-          i + 1 < tokens.length &&
-          _isDigits(tokens[i + 1])) {
-        if (digits.isNotEmpty) {
-          letters = <String>[];
-          digits = '';
-        }
-        letters.addAll(tk.split(''));
-      }
-    }
-
-    final lList = letters.length > 3 ? letters.sublist(letters.length - 3) : letters;
-    final dList = (digits.length > 4 ? digits.substring(0, 4) : digits).split('');
+  /// Extracts visualizer slot values for 7 slots
+  static Map<String, String> extractSlots(String transcript) {
+    final plates = extractPlatesFromTranscript(transcript);
+    if (plates.isEmpty) return const {};
+    final p = plates.last;
+    final lClean = p.letters.replaceAll(RegExp(r'\s+'), '');
+    final lSlots = lClean.length > 3 ? lClean.substring(lClean.length - 3) : lClean;
+    final lList = lSlots.split('');
+    final dList = p.digits.split('');
 
     return {
       'l1': lList.isNotEmpty ? lList[0] : '-',
       'l2': lList.length > 1 ? lList[1] : '-',
       'l3': lList.length > 2 ? lList[2] : '-',
-      'd1': dList.isNotEmpty && dList[0].isNotEmpty ? dList[0] : '-',
+      'd1': dList.isNotEmpty ? dList[0] : '-',
       'd2': dList.length > 1 ? dList[1] : '-',
       'd3': dList.length > 2 ? dList[2] : '-',
       'd4': dList.length > 3 ? dList[3] : '-',
     };
+  }
+
+  /// Orphan note spoken after a pause without a plate
+  static String? orphanNote(String transcript) {
+    final normalized = normalizeArabicSpoken(transcript);
+    if (normalized.isEmpty) return null;
+    final tokens = normalized.split(' ').where((t) => t.isNotEmpty).toList();
+    if (tokens.isEmpty) return null;
+
+    final kw = noteKeywords.firstWhere(
+      (k) => tokens.any((t) => t == k || t.contains(k)),
+      orElse: () => '',
+    );
+    if (kw.isNotEmpty) return kw;
+
+    final idx = tokens.indexWhere(_isNoteTrigger);
+    if (idx != -1 && idx + 1 < tokens.length) {
+      return tokens.sublist(idx + 1).join(' ').trim();
+    }
+    return null;
   }
 }

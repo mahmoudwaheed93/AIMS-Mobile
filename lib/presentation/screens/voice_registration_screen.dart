@@ -742,9 +742,6 @@ class _VoiceRegistrationScreenState extends State<VoiceRegistrationScreen> {
                             duration: const Duration(seconds: 2),
                           ),
                         );
-                        if (recordProvider.lastMatchResult != null && recordProvider.lastMatchResult!.isMatched) {
-                          _showMatchedPlateDetails(context, recordProvider.lastMatchResult!);
-                        }
                       }
                     },
                     );

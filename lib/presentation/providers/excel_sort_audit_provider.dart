@@ -1,4 +1,4 @@
-﻿import '../../core/utils/date_formatter.dart';
+import '../../core/utils/date_formatter.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -132,6 +132,16 @@ class ExcelSortAuditProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Timer? _persistTimer;
+
+  /// Debounced disk persist so rapid speech doesn't freeze the main UI thread
+  void _schedulePersist() {
+    _persistTimer?.cancel();
+    _persistTimer = Timer(const Duration(seconds: 2), () {
+      _persistData();
+    });
   }
 
   Future<void> _persistData() async {
@@ -291,7 +301,7 @@ class ExcelSortAuditProvider extends ChangeNotifier {
 
     _liveAuditFeed.insert(0, logItem);
     _lastAuditResult = logItem;
-    _persistData();
+    _schedulePersist();
     notifyListeners();
 
     return logItem;

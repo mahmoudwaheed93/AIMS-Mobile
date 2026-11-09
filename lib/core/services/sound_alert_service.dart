@@ -22,9 +22,13 @@ class SoundAlertService {
       _lastAlertTime = now;
 
       _player ??= AudioPlayer();
-      await _player!.stop();
-      await _player!.setVolume(1.0);
-      await _player!.play(AssetSource('sounds/alarm.wav'));
+      unawaited(() async {
+        try {
+          await _player!.stop();
+          await _player!.setVolume(1.0);
+          await _player!.play(AssetSource('sounds/alarm.wav'));
+        } catch (_) {}
+      }());
 
       Timer(Duration(seconds: durationSeconds), () async {
         try {
