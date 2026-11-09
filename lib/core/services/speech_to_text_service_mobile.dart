@@ -79,8 +79,8 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
 
   void _restartNow() {
     if (!_wantListening || _isStarting) return;
-    // Immediate restart with zero artificial delay for seamless continuous speech
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Immediate restart on next microtask with zero artificial delay for seamless continuous speech
+    scheduleMicrotask(() {
       if (_wantListening && !_speech.isListening && !_isStarting) {
         _listen();
       }
