@@ -39,7 +39,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
               debugPrint('On-device speech error, falling back to Google Cloud recognition.');
               _useOnDevice = false;
             }
-            if (!val.permanent) {
+            if (!val.permanent || val.errorMsg.toLowerCase().contains('no_match') || val.errorMsg.toLowerCase().contains('speech_timeout') || val.errorMsg.toLowerCase().contains('busy')) {
               _restartSoon();
             } else {
               _wantListening = false;
@@ -79,7 +79,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
     if (!_wantListening || _isStarting) return;
     _restartTimer?.cancel();
     // 100ms allows native Android AudioRecord to release hardware before next session
-    _restartTimer = Timer(const Duration(milliseconds: 100), () {
+    _restartTimer = Timer(const Duration(milliseconds: 25), () {
       if (_wantListening && !_speech.isListening && !_isStarting) {
         _listen();
       }
