@@ -22,18 +22,19 @@ class SoundAlertService {
       _lastAlertTime = now;
 
       _player ??= AudioPlayer();
+      final player = _player;
+      if (player == null) return;
+
       unawaited(() async {
         try {
-          await _player!.stop();
-          await _player!.setVolume(1.0);
-          await _player!.play(AssetSource('sounds/alarm.wav'));
+          await player.stop();
+          await player.setVolume(1.0);
+          await player.play(AssetSource('sounds/alarm.wav'));
         } catch (_) {}
       }());
 
-      Timer(Duration(seconds: durationSeconds), () async {
-        try {
-          await _player?.stop();
-        } catch (_) {}
+      Timer(Duration(seconds: durationSeconds), () {
+        player.stop().catchError((_) {});
       });
     } catch (e) {
       debugPrint('[SoundAlertService] Error playing alert: $e');

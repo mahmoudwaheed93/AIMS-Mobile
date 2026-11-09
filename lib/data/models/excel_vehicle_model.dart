@@ -77,7 +77,7 @@ class ExcelVehicleItem {
       owner: json['owner'] as String? ?? '-',
       notes: json['notes'] as String? ?? '-',
       otherFields: json['otherFields'] != null
-          ? Map<String, String>.from(json['otherFields'] as Map)
+          ? (json['otherFields'] as Map).map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''))
           : const {},
       isAudited: json['isAudited'] as bool? ?? false,
       auditedAt: json['auditedAt'] as String?,
@@ -142,7 +142,7 @@ class AuditedLogItem {
       notes: json['notes'] as String? ?? '-',
       timestamp: json['timestamp'] as String? ?? '',
       otherFields: json['otherFields'] != null
-          ? Map<String, String>.from(json['otherFields'] as Map)
+          ? (json['otherFields'] as Map).map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''))
           : const {},
     );
   }

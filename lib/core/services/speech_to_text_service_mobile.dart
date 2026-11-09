@@ -91,6 +91,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
     if (_isStarting || !_wantListening) return;
     _isStarting = true;
     _session++;
+    bool needFallback = false;
     try {
       await _speech.listen(
         listenOptions: stt.SpeechListenOptions(
@@ -114,16 +115,18 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
     } catch (e) {
       debugPrint('Error during speech listen: $e');
       if (_useOnDevice) {
-        // Fallback to cloud if on-device threw an exception
         _useOnDevice = false;
-        _isStarting = false;
-        await _listen();
-        return;
+        needFallback = true;
+      } else {
+        _wantListening = false;
+        _onDone?.call();
       }
-      _wantListening = false;
-      _onDone?.call();
     } finally {
       _isStarting = false;
+    }
+
+    if (needFallback && _wantListening) {
+      await _listen();
     }
   }
 

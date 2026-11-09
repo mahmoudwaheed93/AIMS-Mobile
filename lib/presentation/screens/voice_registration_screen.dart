@@ -735,13 +735,15 @@ class _VoiceRegistrationScreenState extends State<VoiceRegistrationScreen> {
                     onPlateAdded: (plate, isMatched, model) {
                       if (isMatched) {
                         SoundAlertService.instance.playMatchAlarm(durationSeconds: 3);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('🎯 لوحة مطابقة بالشيت: $plate ($model)'),
-                            backgroundColor: AppColors.success,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('🎯 لوحة مطابقة بالشيت: $plate ($model)'),
+                              backgroundColor: AppColors.success,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       }
                     },
                     );

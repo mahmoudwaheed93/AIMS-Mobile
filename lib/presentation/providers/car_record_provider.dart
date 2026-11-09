@@ -544,7 +544,12 @@ class CarRecordProvider extends ChangeNotifier {
     if (id == null || note == null) return; // applied right after the insert
     try {
       await _dbHelper.updateCarRecordNotes(id, note);
-      await loadRecords();
+      final idx = _records.indexWhere((r) => r.id == id);
+      if (idx != -1) {
+        _records[idx] = _records[idx].copyWith(notes: note);
+        _recentRecords = _records.take(10).toList();
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error updating note: $e');
     }

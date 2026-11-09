@@ -12,7 +12,9 @@ class ArabicVoiceNormalizer {
   ];
 
   static const List<String> noteKeywords = [
-    'جراج يمين', 'برحة يسار', 'موقف مظلل', 'عطلانة', 'مركونة', 'مطربة', 'مصدومة'
+    'جراج يمين', 'برحة يسار', 'برحه يسار', 'موقف مظلل',
+    'عطلانة', 'عطلانه', 'مركونة', 'مركونه',
+    'مطربة', 'مطربه', 'مصدومة', 'مصدومه'
   ];
 
   /// Lookaround word boundary for Arabic text

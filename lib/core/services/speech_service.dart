@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'speech_to_text_service_interface.dart';
 import 'speech_to_text_service_mobile.dart';

@@ -268,7 +268,7 @@ class ExcelSortAuditProvider extends ChangeNotifier {
   AuditedLogItem processAuditPlate(String fullPlate, {String? detectedBrand, String? detectedNote}) {
     final normPlate = ArabicVoiceNormalizer.normalizePlateForMatch(fullPlate);
 
-    final matchIndex = _index[ArabicVoiceNormalizer.plateKey(fullPlate)] ?? -1;
+    final matchIndex = _index[normPlate] ?? -1;
 
     final isMatched = matchIndex != -1;
     final nowStr = AppDateFormatter.time12(DateTime.now());

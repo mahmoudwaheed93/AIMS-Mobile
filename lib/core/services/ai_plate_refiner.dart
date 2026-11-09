@@ -79,7 +79,7 @@ class AiPlateRefiner {
 
   static const String _systemPrompt =
       'You extract vehicle license plates from noisy Arabic speech-recognition text (Egyptian and Saudi dialects). '
-      'A plate consists of 2 to 4 Arabic letters followed by exactly 4 digits. '
+      'A plate consists of 2 to 4 Arabic letters followed by 2 to 4 digits. '
       'Spoken numbers must be converted to numeric digits (e.g. "الفين تمانية مية واحد وستين" -> 2861, "تلاتة تسعة اتنين ستة" -> 3926, "زيرو" -> 0). '
       'Spoken letter names and colloquial variations must become letters (e.g. "سين" -> س, "به" -> ب, "يه" -> ي, "طه" -> ط, "عين" -> ع, "نون" -> ن, "دال" -> د). '
       'Optional car brand or remarks spoken after the plate go to "brand" and "note". '
@@ -165,7 +165,7 @@ class AiPlateRefiner {
       final lettersRaw = ArabicVoiceNormalizer.normalizePlateForMatch('${item['letters'] ?? ''}');
       final digitsRaw = ArabicVoiceNormalizer.normalizePlateForMatch('${item['digits'] ?? ''}');
       if (!RegExp(r'^[ا-ي]{2,4}$').hasMatch(lettersRaw)) continue;
-      if (!RegExp(r'^\d{4}$').hasMatch(digitsRaw)) continue;
+      if (!RegExp(r'^\d{2,4}$').hasMatch(digitsRaw)) continue;
 
       final letters = lettersRaw.split('').join(' ');
       final brand = '${item['brand'] ?? ''}'.trim();
