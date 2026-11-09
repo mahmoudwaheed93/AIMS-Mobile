@@ -143,7 +143,7 @@ class ArabicVoiceNormalizer {
     MapEntry(RegExp(_w('جيم')), 'ج'),
     MapEntry(RegExp(_w('حاء|حا|حه')), 'ح'),
     MapEntry(RegExp(_w('خاء|خا|خه')), 'خ'),
-    MapEntry(RegExp(_w('دال|ده')), 'د'),
+    MapEntry(RegExp(_w('دال|ددل|ه')), 'د'),
     MapEntry(RegExp(_w('ذال|ذه')), 'ذ'),
     MapEntry(RegExp(_w('راء|را|ره')), 'ر'),
     MapEntry(RegExp(_w('زاي|زا|زه')), 'ز'),
