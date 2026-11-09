@@ -69,7 +69,15 @@ class _InspectionScreenState extends State<InspectionScreen> {
     if (records.isListening) await records.stopVoiceListening();
     await insp.startListening(onMatch: (entry) {
       SoundAlertService.instance.playMatchAlarm(durationSeconds: 3);
-      if (mounted) _showDetails(entry.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🎯 سيارة مطابقة بالشيت: ${entry.plate}'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     });
   }
 

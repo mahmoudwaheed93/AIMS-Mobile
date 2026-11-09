@@ -354,7 +354,7 @@ class CarRecordProvider extends ChangeNotifier {
   }
 
   Timer? _aiTimer;
-  static const Duration _aiDebounce = Duration(milliseconds: 250);
+  static const Duration _aiDebounce = Duration(milliseconds: 750);
 
   void _scheduleAiFallback(
     String rawTranscript,

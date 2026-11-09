@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'speech_to_text_service_interface.dart';
 
-/// Flag to control initial on-device preference.
-/// Enabled by default for 0ms instant local speech recognition.
-const bool kPreferOnDeviceSpeech = true;
+/// Set to true ONLY if the Arabic offline speech pack is explicitly installed on the phone.
+/// Setting to false ensures instant, reliable recognition via Google speech streaming on all devices.
+const bool kPreferOnDeviceSpeech = false;
 
 class MobileSpeechPlatformService implements SpeechPlatformService {
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -16,6 +16,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
   Function(String transcript)? _onResult;
   VoidCallback? _onDone;
   String? _localeId;
+  Timer? _restartTimer;
 
   int _session = 0;
 
@@ -33,16 +34,13 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
         onError: (val) {
           debugPrint('Speech error: ${val.errorMsg} permanent=${val.permanent}');
           if (_wantListening) {
-            // If on-device fails with unsupported language, fallback immediately to cloud
-            if (_useOnDevice &&
-                (val.errorMsg.contains('language_not_supported') ||
-                    val.errorMsg.contains('error_server') ||
-                    val.errorMsg.contains('error_busy'))) {
-              debugPrint('On-device speech unavailable, falling back to standard recognition.');
+            // Graceful fallback from on-device to cloud on ANY recognition failure
+            if (_useOnDevice) {
+              debugPrint('On-device speech error, falling back to Google Cloud recognition.');
               _useOnDevice = false;
             }
             if (!val.permanent) {
-              _restartNow();
+              _restartSoon();
             } else {
               _wantListening = false;
               _onDone?.call();
@@ -52,7 +50,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
         onStatus: (val) {
           debugPrint('Speech status: $val');
           if (_wantListening && (val == 'done' || val == 'notListening')) {
-            _restartNow();
+            _restartSoon();
           }
         },
       );
@@ -77,10 +75,11 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
     }
   }
 
-  void _restartNow() {
+  void _restartSoon() {
     if (!_wantListening || _isStarting) return;
-    // Immediate restart on next microtask with zero artificial delay for seamless continuous speech
-    scheduleMicrotask(() {
+    _restartTimer?.cancel();
+    // 100ms allows native Android AudioRecord to release hardware before next session
+    _restartTimer = Timer(const Duration(milliseconds: 100), () {
       if (_wantListening && !_speech.isListening && !_isStarting) {
         _listen();
       }
@@ -96,8 +95,8 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
       await _speech.listen(
         listenOptions: stt.SpeechListenOptions(
           localeId: _localeId ?? 'ar_SA',
-          // confirmation / deviceDefault emits partial words instantly without waiting for sentence silence
-          listenMode: stt.ListenMode.confirmation,
+          // dictation mode keeps listening continuously without killing the session after single words
+          listenMode: stt.ListenMode.dictation,
           partialResults: true,
           cancelOnError: false,
           autoPunctuation: false,
@@ -105,7 +104,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
           onDevice: _useOnDevice,
         ),
         listenFor: const Duration(hours: 1),
-        pauseFor: const Duration(seconds: 4),
+        pauseFor: const Duration(seconds: 10),
         onResult: (result) {
           if (result.recognizedWords.isNotEmpty) {
             _onResult?.call(result.recognizedWords);
@@ -126,7 +125,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
     }
 
     if (needFallback && _wantListening) {
-      await _listen();
+      _restartSoon();
     }
   }
 
@@ -151,6 +150,7 @@ class MobileSpeechPlatformService implements SpeechPlatformService {
   Future<void> stopListening() async {
     _wantListening = false;
     _isStarting = false;
+    _restartTimer?.cancel();
     if (_speech.isListening) {
       await _speech.stop();
     }
