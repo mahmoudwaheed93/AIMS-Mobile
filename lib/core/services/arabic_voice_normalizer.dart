@@ -227,7 +227,7 @@ class ArabicVoiceNormalizer {
     var prev = '';
     while (prev != cleaned) {
       prev = cleaned;
-      cleaned = cleaned.replaceAllMapped(RegExp(r'(\d+)\s+(\d+)'), (m) => '${m.group(1)}${m.group(2)}');
+      cleaned = cleaned.replaceAllMapped(RegExp(r'(\d{1,3})\s+(\d)'), (m) => '${m.group(1)}${m.group(2)}');
     }
 
     return cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
