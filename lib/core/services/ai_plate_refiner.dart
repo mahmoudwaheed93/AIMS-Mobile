@@ -25,12 +25,10 @@ class AiPlateRefiner {
 
   // Primary Ultra-Fast Engine: Groq LPU (Arabic-specialized ALLAM 2 7B / LPU)
   static const String _groqEndpoint = 'https://api.groq.com/openai/v1/chat/completions';
-  static const String _groqModel = 'allam-2-7b';
-
+    static const String _groqModel = 'llama-3.3-70b-versatile';
   // Fallback Engine: Hugging Face Router
   static const String _hfEndpoint = 'https://router.huggingface.co/v1/chat/completions';
-  static const String _hfModel = 'Qwen/Qwen2.5-1.5B-Instruct';
-
+    static const String _hfModel = 'Qwen/Qwen2.5-72B-Instruct';
   String _runtimeGroqToken = '';
   bool _initialized = false;
 
