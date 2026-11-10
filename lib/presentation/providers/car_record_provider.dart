@@ -375,7 +375,7 @@ if (_records.isNotEmpty && _lastKey != null && norm.startsWith(_lastKey!) && nor
     Function(String plate, bool isMatched, String carModel) onPlateAdded,
   ) {
     _aiTimer?.cancel();
-    if !localFoundNothing || !AiPlateRefiner.instance.isEnabled) return;
+    if (!AiPlateRefiner.instance.isEnabled) return;
     final digitCount = RegExp(r'\d').allMatches(normalized).length;
     if (digitCount < 3) return;
     // Wait until the speaker pauses, so we send one request per utterance.
