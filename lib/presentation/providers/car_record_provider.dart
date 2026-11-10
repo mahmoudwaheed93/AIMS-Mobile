@@ -280,10 +280,22 @@ class CarRecordProvider extends ChangeNotifier {
       if (spokenNote != null && spokenNote != _stickyNote && _latestNote[norm] != spokenNote) {
         _latestNote[norm] = spokenNote;
         _applyNoteUpdate(norm);
+      }if (plateData.detectedBrand != '-') {
+        final idx = _records.indexWhere((r) => ArabicVoiceNormalizer.normalizePlateForMatch(r.plateNumber) == norm);
+        if (idx != -1 && _records[idx].carType != plateData.detectedBrand) {
+          _records[idx] = _records[idx].copyWith(carType: plateData.detectedBrand);
+          _recentRecords = _records.take(10).toList();
+          notifyListeners();
+        }
       }
+      
       return;
     }
-
+if (_records.isNotEmpty && _lastKey != null && norm.startsWith(_lastKey!) && norm.length > _lastKey!.length && _records.first.plateNumber.startsWith(plateData.letters)) {
+  _recordedPlates.remove(_lastKey);
+  _records.removeAt(0);
+}
+    
     _recordedPlates.add(norm);
     _lastKey = norm;
     _latestNote[norm] = spokenNote ?? _stickyNote ?? '-';
@@ -363,7 +375,7 @@ class CarRecordProvider extends ChangeNotifier {
     Function(String plate, bool isMatched, String carModel) onPlateAdded,
   ) {
     _aiTimer?.cancel();
-    if (!localFoundNothing || !AiPlateRefiner.instance.isEnabled) return;
+    if !localFoundNothing || !AiPlateRefiner.instance.isEnabled) return;
     final digitCount = RegExp(r'\d').allMatches(normalized).length;
     if (digitCount < 3) return;
     // Wait until the speaker pauses, so we send one request per utterance.
